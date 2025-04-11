@@ -4,6 +4,7 @@ import Colors from "../styles/Colors";
 import { useNavigation } from "@react-navigation/native";
 import { launchImageLibrary } from "react-native-image-picker";
 import { useState } from "react";
+import axios from "axios";
 
 
 const ChatScreen = () => {
@@ -32,26 +33,29 @@ const ChatScreen = () => {
     const handleSend = async () => {
         if (!text && !imageUri) return;
     
+        console.log("Text:", text);
+        console.log("Image URI:", imageUri);
         const formData = new FormData();
         if (text) formData.append("prompt", text);
         if (imageUri) {
+          const uri = Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''); 
           formData.append("image", {
-            uri: imageUri,
+            uri: uri,
             name: "photo.jpg",
             type: "image/jpeg",
           });
         }
+
+        console.log("Form data:", formData);
     
         try {
-          const response = await fetch("http://localhost:5000/api/v1/imagePrompt", {
-            method: "POST",
+          const response = await axios.post("http://192.168.0.104:5000/api/v1/imagePrompt", formData, {
             headers: {
               "Content-Type": "multipart/form-data",
             },
-            body: formData,
           });
     
-          const data = await response.json();
+          const data = response.data;
     
           setMessages(prev => [
             ...prev,
@@ -67,13 +71,26 @@ const ChatScreen = () => {
       };
 
       const pickImage = async () => {
-        const hasPermission = await requestPermission();
-        if (!hasPermission) return;
-      
-        const result = await launchImageLibrary({ mediaType: 'photo' });
-        if (result.assets && result.assets[0].uri) {
-          setImageUri(result.assets[0].uri);
+        // const hasPermission = await requestPermission();
+        // if (!hasPermission) return;
+
+        const options = {
+            mediaType: 'photo',
+            selectionLimit: 1,
+            includeBase64: false
         }
+
+        launchImageLibrary(options, (response) => {
+            if (response.didCancel) {
+                console.log("User cancelled image picker");
+            } else if (response.error) {
+                console.log("Image picker error:", response.error);
+            } else {
+              const uri = response.assets[0].uri;
+              console.log("Image URI:", uri);
+              setImageUri(uri);
+            }
+        });
       };
       
       
